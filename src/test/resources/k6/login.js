@@ -76,6 +76,7 @@ export function loginScenario() {
     // Comprobaciones (marcamos explícitamente qué consideramos éxito):
     // - Debe existir un token en el body (este es el criterio principal de éxito)
     // - El tiempo debe ser menor a 1500ms (seguimos midiendo latencia)
+    //ks
     check(res, {
         'body has token': () => !!(body && body.token),
         'duration < 1500ms': (r) => r.timings && r.timings.duration < 1500,

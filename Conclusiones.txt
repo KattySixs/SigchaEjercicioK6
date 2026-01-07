@@ -1,0 +1,14 @@
+# Conclusiones del ejercicio 1: Performance -- SigchaK
+- El uso de K6 como herramienta para pruebas de rendimiento, permitió validar y analizar de forma efectiva la capacidad del servicio al tener una carga que se ejecuta al mismo tiempo, como en este caso que se logró simular que muchos usuarios concurrentes estén accediendo al servicio de login. Por medio de la herramienta se pudo codificar y monitorear en tiempo real las peticiones por segundo que realizarían los usuarios, así como evaluar los percentiles de tiempo de respuesta y tasas de error.
+- De acuerdo al uno de los resultados obtenidos en la ejecución se presenta un ejemplo:
+	checks_total: 2402
+	checks_succeeded: 100.00%
+	checks_failed: 0.00%
+	errors: 0.00% (0/1201)
+	http_req_duration: p(95)=438.24 ms (avg=387.04 ms, max=1.42 s)
+	http_req_failed: 0.00% (0/1201)
+	Iteraciones completadas: 1201 (≈19.90/s)
+	VUs observados: min=6, max=19
+- En base a los resultados se encuentra la ejecución como satisfactoria, todos los checks pasaron (100%) y los thresholds no se cruzaron. Con respecto al rendimiento, este se encuentra dentro de lo esperado (p(95)≈438ms) y no se presentaron errores de transporte HTTP. Es decir, el tiempo de respuesta y la tasa de error aceptable cumplen con los umbrales definidos.
+- En conclusión, el rendimiento de la API se encuentra estable bajo la carga generada y el flujo de autenticación funciona incluido al obtener el token en las respuestas.
+- Usar datos desde un archivo externo como en este caso fue "entrada.csv", resulta de mucha utilidad para tener una mejor flexibilidad y organización, sin embargo, se debe tener cuidado en como se va a leer el archivo y que el formato interno tenga sus encabezados e información correctos.

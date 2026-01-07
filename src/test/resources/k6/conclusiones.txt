@@ -1,0 +1,58 @@
+Conclusiones del ejercicio K6 - login.js (última ejecución)
+
+Resumen ejecutivo (última ejecución):
+- Script ejecutado: src/test/resources/k6/login.js
+- Endpoint objetivo observado en la ejecución: https://fakestoreapi.com/auth/login
+- Duración de la prueba: 1m0s (escenario: 20 iters/s durante 1m)
+- Total de iteraciones completadas: 1201
+- Total de requests HTTP: 1201
+
+Métricas clave extraídas del log:
+- Checks totales: 3603
+  • Sucedidos: 2402 (66.66%)
+  • Fallidos: 1201 (33.33%)
+  • Check concreto que falló: `status 200` — 0% pasaron (0 ✓ / 1201 ✗)
+- Métrica custom `errors`: 100.00% (1201/1201) — todas las iteraciones incrementaron esta métrica
+- http_req_duration (latencia): avg=374.06ms, med=366.6ms, min=341.64ms, max=716.76ms, p(90)=397.48ms, p(95)=423.06ms
+  • Threshold configurado p(95)<1500ms: RESULTADO = OK
+- http_req_failed: 0.00% (0/1201) — no hubo fallos a nivel de transporte HTTP
+- Iteration duration: avg=383.97ms, p(95)=501.64ms
+- VUs observados durante la ejecución: min=7, max=13 (configurado maxVUs=50)
+- Mensaje de final: "thresholds on metrics 'errors' have been crossed" — la prueba terminó con estado de fallo por thresholds
+
+Interpretación técnica detallada:
+- El rendimiento (latencias) de las peticiones es aceptable según los umbrales configurados (p(95) está muy por debajo de 1500ms).
+- No hubo errores de transporte (http_req_failed=0%), por lo que las peticiones llegaron y recibieron respuesta.
+- La causa del fallo es de "negocio": los checks que validan la respuesta (por ejemplo estado 200 y existencia de token) fallaron en muchas iteraciones. Cada fallo de estos checks incrementó la métrica `errors`, alcanzando 100% y cruzando el umbral configurado para `errors`.
+- En particular, el check `status 200` no se cumplió en ninguna de las 1201 iteraciones (0% pasadas), lo que sugiere que el endpoint devolvió un status distinto de 200 o que la lógica del script compara el status de forma incorrecta.
+
+Causas probables (priorizadas):
+1) Credenciales inválidas o mal formateadas en `src/test/resources/data/entrada.csv` (o SharedArray leyendo mal el CSV), provocando respuestas tipo 401/403 u otras sin token.
+2) Cambio en la API remota: la estructura del body puede haber cambiado (el token llega en otro campo o no se devuelve token en este endpoint).
+3) El script asume que todas las respuestas con status 200 contienen un `token`; si la API devuelve otra estructura, el check de negocio fallará.
+4) Errores de parsing del CSV (líneas vacías, encabezado no gestionado) produciendo intentos con credenciales vacías.
+
+Acción inmediata recomendada para "que no falle" (paso solicitad0: primero probemos que no falle):
+- Opción A (rápida y reversible): comentar o eliminar temporalmente la threshold/umbral que vigila la métrica `errors` en `src/test/resources/k6/login.js`. Esto evita que la ejecución termine con estado FAILED mientras se investiga la causa.
+- Opción B (más segura, logging): mantener la threshold pero evitar que cada fallo de check incremente la métrica `errors` hasta diagnosticar; en su lugar, añadir console.log con status y body para las respuestas que fallan los checks.
+
+Pasos concretos que puedo aplicar ahora (elige uno):
+1) Modificar temporalmente `login.js` para comentar la threshold `errors` y dejar el resto intacto (rápido). Esto hace que la ejecución no marque FAILED por thresholds.
+2) Modificar `login.js` para añadir logging cuando un check falla (imprime status y body), y correr 1 iteración para inspeccionar la respuesta real.
+3) Inspeccionar y, si quieres, corregir `src/test/resources/data/entrada.csv` para validar credenciales.
+
+Comandos de prueba rápida (PowerShell):
+Para ejecutar una sola iteración y revisar manualmente la respuesta:
+```powershell
+k6 run --vus 1 --iterations 1 src/test/resources/k6/login.js
+```
+Para ejecutar la prueba completa (igual que la última vez):
+```powershell
+k6 run src/test/resources/k6/login.js
+```
+
+Recomendaciones finales:
+- No eliminar permanentemente métricas o thresholds: relajar o desactivar temporalmente `errors` solo para diagnóstico. La corrección definitiva debe abordar la causa raíz (credenciales, parsing o adaptación de checks a la respuesta real).
+- Agregar logging cuando fallen checks y ejecutar con pocas iteraciones hasta obtener ejemplos de respuestas erróneas. Una vez corregido, restaurar thresholds y volver a ejecutar la prueba de carga.
+
+Archivo actualizado: src/test/resources/k6/conclusiones.txt

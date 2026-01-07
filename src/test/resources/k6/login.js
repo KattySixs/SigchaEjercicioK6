@@ -7,7 +7,7 @@ import { Rate } from 'k6/metrics';
 const creds = new SharedArray('credentials', function () {
     return open('../data/entrada.csv')
         .split('\n')
-        .slice(1) // quitar encabezado
+        .slice(1)
         .map(l => l.trim())
         .filter(Boolean)
         .map(l => {
@@ -16,10 +16,10 @@ const creds = new SharedArray('credentials', function () {
         });
 });
 
-// Métrica personalizada para errores esperados/negocios
+// Métrica para errores
 export let errorRate = new Rate('errors');
 
-// Permitir parametrización vía variables de entorno
+// Parametrizaciones
 const DEFAULT_RATE = 20;
 const DEFAULT_TIME_UNIT = '1s';
 const DEFAULT_DURATION = '1m';
@@ -33,25 +33,21 @@ export let options = {
         login_rps: {
             executor: 'constant-arrival-rate',
             exec: 'loginScenario',
-            rate: RATE,           // iteraciones por timeUnit (RPS)
-            timeUnit: TIME_UNIT,  // por defecto '1s' => RPS
-            duration: DURATION,   // duración (puede ser "1m", "30s", etc.)
+            rate: RATE,
+            timeUnit: TIME_UNIT,
+            duration: DURATION,
             preAllocatedVUs: 50,
             maxVUs: 200,
         },
     },
     thresholds: {
-        // Tiempo de respuesta: p95 debe ser menor a 1500ms
         'http_req_duration': ['p(95)<1500'],
-        // Tasa de peticiones fallidas (HTTP) menor al 3%
         'http_req_failed': ['rate<0.03'],
-        // Umbral para la métrica de errores de negocio que usamos
         'errors': ['rate<0.03'],
     },
 };
 
 export function loginScenario() {
-    // Selección round-robin de credenciales
     const idx = ( (__ITER || 0) + (__VU || 0) ) % creds.length;
     const cred = creds[idx];
 
@@ -64,8 +60,6 @@ export function loginScenario() {
 
     const res = http.post(url, payload, params);
 
-    // Validaciones por petición
-    // Parseo seguro del cuerpo
     let body = {};
     try {
         body = JSON.parse(res.body || '{}');
@@ -73,10 +67,6 @@ export function loginScenario() {
         body = {};
     }
 
-    // Comprobaciones (marcamos explícitamente qué consideramos éxito):
-    // - Debe existir un token en el body (este es el criterio principal de éxito)
-    // - El tiempo debe ser menor a 1500ms (seguimos midiendo latencia)
-    //ks
     check(res, {
         'body has token': () => !!(body && body.token),
         'duration < 1500ms': (r) => r.timings && r.timings.duration < 1500,
@@ -93,9 +83,6 @@ export function loginScenario() {
     }
 }
 
-// Referencias adicionales para evitar advertencias de 'unused' por analizadores estáticos.
-// Asignamos a `globalThis.__k6_test_refs` para que las variables queden referenciadas; esto no afecta
-// la ejecución de k6 y es una acción segura en entornos JS modernos.
 if (typeof globalThis !== 'undefined') {
     globalThis.__k6_test_refs = options;
     // Referencia no operativa para que el analizador marque `loginScenario` como usado.
